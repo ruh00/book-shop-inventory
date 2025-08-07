@@ -1,0 +1,1937 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <title>Book Ops — Improved Prototype (Charts + Fixed Recent + Table Scroll)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Charts library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    /* THEME */
+    :root {
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+      --shadow-1: 0 1px 2px rgba(0,0,0,.3), 0 6px 18px rgba(0,0,0,.25);
+      --shadow-2: 0 2px 10px rgba(0,0,0,.35);
+      --ring: 0 0 0 2px var(--outline-weak), 0 0 0 4px var(--outline);
+      --trans-fast: 160ms ease;
+      --trans-med: 240ms ease;
+      --header-h: 64px;
+    }
+    :root[data-theme="dark"] {
+      --bg: #0b1020;
+      --panel: #0f172a;
+      --panel-2:#0b1222;
+      --panel-3:#0a0f1d;
+      --text: #e5e7eb;
+      --muted: #9aa4b2;
+      --line: #1f2937;
+      --accent: #22c55e;
+      --accent-2: #16a34a;
+      --danger: #ef4444;
+      --warn: #f59e0b;
+      --ok: #10b981;
+      --link: #60a5fa;
+      --badge-bg: #10192e;
+      --badge-line: #273049;
+      --outline: rgba(34,197,94,.35);
+      --outline-weak: rgba(34,197,94,.12);
+      --table-hover: #0c1528;
+      --kpi-ok-bg: #0d2117;
+      --kpi-warn-bg: #231a05;
+      --kpi-low-bg:#2a0f12;
+    }
+    :root[data-theme="light"] {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --panel-2:#f7f9fc;
+      --panel-3:#eef2f7;
+      --text: #0f172a;
+      --muted: #475569;
+      --line: #e5e7eb;
+      --accent: #16a34a;
+      --accent-2: #15803d;
+      --danger: #dc2626;
+      --warn: #d97706;
+      --ok: #059669;
+      --link: #2563eb;
+      --badge-bg: #f5f8ff;
+      --badge-line: #e6ecfb;
+      --outline: rgba(21,128,61,.35);
+      --outline-weak: rgba(21,128,61,.12);
+      --table-hover: #f6f9ff;
+      --kpi-ok-bg: #e9f9ef;
+      --kpi-warn-bg: #fff6e5;
+      --kpi-low-bg:#ffefef;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height:100%; }
+    body {
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* HEADER */
+    header {
+      display:flex; align-items:center; gap:12px;
+      padding:12px 16px;
+      position:sticky; top:0; z-index:20;
+      background: linear-gradient(180deg, rgba(15,23,42,.95), rgba(15,23,42,.88));
+      backdrop-filter: saturate(120%) blur(6px);
+      border-bottom: 1px solid var(--line);
+    }
+    header h1 { margin:0; font-size:16px; letter-spacing:.15px; }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .logo {
+      width:28px; height:28px; border-radius:8px;
+      display:grid; place-items:center;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color:white; font-weight:700; box-shadow: var(--shadow-1);
+    }
+
+    nav { margin-left:16px; display:flex; gap:6px; flex-wrap:wrap; }
+    nav button {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--line);
+      padding:8px 10px; border-radius: 8px;
+      cursor:pointer; transition: transform var(--trans-fast), background var(--trans-fast);
+    }
+    nav button:hover { transform: translateY(-1px); }
+    nav button.active { background: rgba(34,197,94,.12); border-color: rgba(34,197,94,.35); color: #86efac; }
+
+    .header-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
+    .icon-btn {
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:6px; padding:8px 10px; border-radius:8px;
+      background: var(--panel-2); border:1px solid var(--line); color: var(--text);
+      cursor:pointer; transition: background var(--trans-fast), transform var(--trans-fast);
+    }
+    .icon-btn:hover { background: var(--panel-3); transform: translateY(-1px); }
+    .icon-btn .ic { width:16px; height:16px; opacity:.9; }
+
+    /* LAYOUT */
+    main { padding:18px; display:grid; gap:18px; max-width:1400px; margin:0 auto; }
+    section { display:none; }
+    section.active { display:block; }
+    .grid { display:grid; gap:14px; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); }
+    .card {
+      background: var(--panel); border:1px solid var(--line);
+      border-radius: var(--radius); padding:14px; box-shadow: var(--shadow-2);
+    }
+    .card h2, .card h3 { margin:0 0 10px; }
+    h2 { font-size:18px; }
+    h3 { font-size:15px; color: var(--muted); }
+
+    /* KPI */
+    .kpis { display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); }
+    .kpi {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:14px; border-radius:12px; border:1px solid var(--line);
+      background: var(--panel-2);
+    }
+    .kpi.ok { background: var(--kpi-ok-bg); }
+    .kpi.warn { background: var(--kpi-warn-bg); }
+    .kpi.low { background: var(--kpi-low-bg); }
+    .kpi strong { font-size:20px; letter-spacing:.2px; }
+    .kpi .muted { font-size:12px; }
+    .badge { padding:2px 8px; border-radius: 999px; font-size:12px; border:1px solid var(--badge-line); background:var(--badge-bg); }
+
+    /* FORMS */
+    label { display:block; font-size:12px; color: var(--muted); margin-bottom:4px; }
+    input, select, textarea {
+      width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+      background: var(--panel-2); color: var(--text);
+      transition: box-shadow var(--trans-fast), border-color var(--trans-fast), background var(--trans-fast);
+    }
+    input:focus, select:focus, textarea:focus { outline:none; box-shadow: var(--ring); border-color: transparent; }
+    input[type="number"] { -moz-appearance: textfield; }
+    .row { display:grid; grid-template-columns: repeat(2, 1fr); gap:10px; }
+    .row3 { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; }
+    .toolbar { display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; }
+    .btn {
+      background: var(--panel-2); border:1px solid var(--line); color: var(--text);
+      padding:10px 12px; border-radius:10px; cursor:pointer; transition: transform var(--trans-fast), background var(--trans-fast);
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn.primary { background: linear-gradient(180deg, rgba(34,197,94,.14), rgba(34,197,94,.10)); border-color: rgba(34,197,94,.35); color:#d1fae5;}
+    .btn.danger { background: linear-gradient(180deg, rgba(239,68,68,.14), rgba(239,68,68,.10)); border-color: rgba(239,68,68,.35); color:#fecaca;}
+    .hint { font-size:12px; color:#a3e635; }
+    .muted { color: var(--muted); font-size:12px; }
+    .gap { height:6px; }
+
+    /* TABLES */
+    /* Wrapper for independent scroll and sticky headers within the card */
+    .table-scroll {
+      max-height: 60vh;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel-2);
+    }
+    .table-scroll table {
+      width:100%;
+      border-collapse: separate;
+      border-spacing:0;
+      border:0;
+    }
+    th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); font-size:13px; vertical-align: middle; }
+    th {
+      position: sticky;
+      top: var(--header-h, 64px); /* default sticky against the page */
+      z-index: 1;
+      background: var(--panel-3);
+      color: var(--muted);
+      user-select:none; cursor: default;
+      box-shadow: 0 1px 0 var(--line);
+    }
+    /* When a table is inside a scroll container, stick to that container */
+    .table-scroll thead th {
+      top: 0;
+      z-index: 3;
+    }
+    tr:hover td { background: var(--table-hover); }
+    td.right, th.right { text-align:right; }
+    .pill { padding:4px 8px; border-radius:999px; font-size:12px; border:1px solid var(--badge-line); }
+    .pill.purchase { background:#0a1d12; color:#86efac; border-color:#14532d; }
+    .pill.sale { background:#1d0a12; color:#fecaca; border-color:#3f121d; }
+    .pill.adjustment { background:#0a0f1d; color:#93c5fd; border-color:#1e3a8a; }
+    .danger-txt { color:#f87171; }
+    .success-txt { color:#4ade80; }
+
+    .actions { display:flex; gap:6px; justify-content:flex-end; }
+    .icon-btn.sm { padding:6px 8px; border-radius:8px; }
+    .ic { width:16px; height:16px; }
+
+    /* SORT */
+    th.sort { cursor:pointer; }
+    th.sort .dir { opacity:.6; margin-left:6px; }
+    th.sort.active { color:#86efac; }
+    th.sort.active .dir { opacity:1; }
+
+    /* PREVIEW PANEL */
+    .preview {
+      display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;
+    }
+    .preview .box {
+      flex:1 1 200px; padding:10px; border-radius:10px; background:var(--panel-3); border:1px solid var(--line);
+    }
+    .preview .label { font-size:11px; color:var(--muted); }
+    .warn-txt { color: var(--warn); }
+    .ok-txt { color: var(--ok); }
+
+    /* MODAL */
+    .modal-root { position: fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; }
+    .modal-root.active { display:flex; }
+    .modal-backdrop { position:absolute; inset:0; background: rgba(0,0,0,.45); }
+    .modal {
+      position:relative; width:min(720px, 96vw); background: var(--panel); border:1px solid var(--line);
+      border-radius:16px; box-shadow: var(--shadow-1); padding:16px; z-index:1;
+      animation: pop var(--trans-med);
+    }
+    @keyframes pop { from { transform: translateY(8px) scale(.98); opacity:0; } to { transform: none; opacity:1; } }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:12px; }
+
+    /* TOASTS */
+    .toasts { position: fixed; bottom:16px; right:16px; display:grid; gap:8px; z-index:60; }
+    .toast {
+      background: var(--panel); border:1px solid var(--line); color:var(--text); padding:10px 12px; border-radius:10px; min-width:240px;
+      box-shadow: var(--shadow-1); animation: slideIn var(--trans-med);
+    }
+    .toast.ok { border-color: rgba(16,185,129,.4); }
+    .toast.warn { border-color: rgba(245,158,11,.4); }
+    .toast.err { border-color: rgba(239,68,68,.45); }
+    @keyframes slideIn { from { transform: translateY(10px); opacity:0;} to { transform: none; opacity:1;} }
+
+    /* CHARTS */
+    .chart-wrap { position: relative; height: 300px; }
+    .chart-wrap.lg { height: 340px; }
+    .chart-empty { display:grid; place-items:center; height:100%; color: var(--muted); font-size:12px; }
+
+    /* RECENT LIST */
+    .recent-list { display:grid; gap:8px; }
+    .recent-item {
+      display:grid; grid-template-columns: 1fr auto;
+      align-items:center; gap:10px;
+      border:1px solid var(--line); background: var(--panel-2);
+      border-radius:10px; padding:10px; cursor:pointer;
+    }
+    .recent-item:hover { background: var(--panel-3); }
+    .recent-left { display:flex; gap:10px; align-items:center; min-width:0; }
+    .recent-title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-meta { color: var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-right { text-align:right; }
+    .recent-sum { font-size:13px; font-weight:700; }
+    .recent-sum.ok { color: var(--ok); }
+    .recent-sum.bad { color: var(--danger); }
+    .recent-sum.neutral { color: var(--muted); }
+
+    /* HIGHLIGHT ROW */
+    tr.flash-highlight td { animation: rowFlash 1.6s ease-out; }
+    @keyframes rowFlash { 0% { background: rgba(96,165,250,.22); } 100% { background: transparent; } }
+
+    /* SMALL HELPERS */
+    .small { font-size:12px; }
+    .right { text-align:right; }
+    .row-stack { display:grid; gap:10px; }
+    @media (max-width: 780px) {
+      .row, .row3 { grid-template-columns: 1fr; }
+      th { top: var(--header-h, 56px); }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo">B</div>
+    <h1>Book Ops</h1>
+  </div>
+  <nav>
+    <button data-tab="dash" class="active">Dashboard</button>
+    <button data-tab="books">Books</button>
+    <button data-tab="suppliers">Suppliers</button>
+    <button data-tab="txns">Transactions</button>
+    <button data-tab="data">Data</button>
+  </nav>
+  <div class="header-actions">
+    <button class="icon-btn" id="themeBtn" title="Toggle theme">
+      <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05 5.636 5.636m12.728 0-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+      Theme
+    </button>
+  </div>
+</header>
+
+<main>
+  <section id="dash" class="active">
+    <div class="kpis">
+      <div class="kpi ok">
+        <div><div class="muted">Total Inventory Value</div><strong id="kpiValue">—</strong></div><span class="badge">BDT</span>
+      </div>
+      <div class="kpi warn" id="kpiLowCard" style="cursor:pointer;" title="Show low-stock books">
+        <div><div class="muted">Low-stock Books</div><strong id="kpiLow">—</strong></div><span class="badge">count</span>
+      </div>
+      <div class="kpi low">
+        <div><div class="muted">Pending Payments</div><strong id="kpiPending">—</strong></div><span class="badge">BDT</span>
+      </div>
+      <div class="kpi ok">
+        <div><div class="muted">Net Profit (last 30 days)</div><strong id="kpiProfit30">—</strong></div><span class="badge">BDT</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h2>Recent Transactions</h2>
+      <div id="recentTxns" class="small muted">No data yet.</div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Sales, Profit & Purchases (last 90 days)</h2>
+        <div class="chart-wrap lg" id="wrapSalesProfit">
+          <canvas id="chartSalesProfit"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Inventory Value by Book (Top 8)</h2>
+        <div class="chart-wrap" id="wrapInventoryValue">
+          <canvas id="chartInventoryValue"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Pending by Supplier</h2>
+        <div class="chart-wrap" id="wrapPendingSupplier">
+          <canvas id="chartPendingSupplier"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="books">
+    <div class="grid">
+      <div class="card">
+        <h2>Add Book</h2>
+        <form id="bookForm">
+          <label>Title<input name="title" required placeholder="e.g., Intro to WordPress Ops"></label>
+          <div class="row">
+            <div><label>Author<input name="author" placeholder="Author"></label></div>
+            <div><label>ISBN<input name="isbn" placeholder="978..."></label></div>
+          </div>
+          <div class="row">
+            <div><label>Purchase Cost/Unit (BDT)<input name="purchase_cost_per_unit" type="number" step="0.01" min="0" required></label></div>
+            <div><label>Minimum Stock Level<input name="minimum_stock_level" type="number" step="1" min="0" value="0"></label></div>
+          </div>
+          <div class="row">
+            <div><label>Recommended Selling Price<input name="recommended_selling_price" type="number" step="0.01" min="0" placeholder="Auto-suggested if empty"></label></div>
+            <div><label>Condition<input name="book_condition" placeholder="New/Used"></label></div>
+          </div>
+          <button class="btn primary" type="submit">Add Book</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <h2>Books</h2>
+          <div class="toolbar">
+            <input id="bookSearch" placeholder="Search books..." />
+            <button class="btn" id="lowOnlyBtn">Low only</button>
+          </div>
+        </div>
+        <div id="booksTableWrap" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="suppliers">
+    <div class="grid">
+      <div class="card">
+        <h2>Add Supplier</h2>
+        <form id="supplierForm">
+          <label>Supplier Name<input name="name" required placeholder="Company"></label>
+          <div class="row">
+            <div><label>Contact Person<input name="contact" placeholder="Contact"></label></div>
+            <div><label>Phone<input name="phone" placeholder="Phone"></label></div>
+          </div>
+          <div class="row">
+            <div><label>Email<input name="email" type="email" placeholder="email@example.com"></label></div>
+            <div><label>Default Commission %<input name="default_commission_rate" type="number" step="0.01" min="0" value="0"></label></div>
+          </div>
+          <button class="btn primary" type="submit">Add Supplier</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <h2>Suppliers</h2>
+          <div class="toolbar">
+            <input id="supplierSearch" placeholder="Search suppliers..." />
+          </div>
+        </div>
+        <div id="suppliersTableWrap" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="txns">
+    <div class="card">
+      <h2>Add Transaction</h2>
+      <form id="txnForm">
+        <div class="row3">
+          <div>
+            <label>Type
+              <select name="type" id="txnType" required>
+                <option value="purchase">Purchase</option>
+                <option value="sale">Sale</option>
+                <option value="adjustment">Adjustment</option>
+              </select>
+            </label>
+          </div>
+          <div>
+            <label>Book
+              <select name="book_id" id="txnBook" required></select>
+            </label>
+          </div>
+          <div>
+            <label>Supplier (optional for sale/adjustment)
+              <select name="supplier_id" id="txnSupplier"></select>
+            </label>
+          </div>
+        </div>
+        <div class="gap"></div>
+
+        <div id="purchaseFields" class="row3">
+          <div><label>Qty Received<input name="quantity_received" type="number" step="1" min="0" value="0"></label></div>
+          <div><label>Unit Cost (BDT)<input name="purchase_cost_per_unit" type="number" step="0.01" min="0" placeholder="defaults to book cost"></label></div>
+          <div><label>Payment Status
+            <select name="payment_status">
+              <option value="pending">pending</option>
+              <option value="partial">partial</option>
+              <option value="paid">paid</option>
+            </select></label></div>
+          <div><label>Amount Paid (BDT)<input name="amount_paid" type="number" step="0.01" min="0" value="0"></label></div>
+        </div>
+
+        <div id="saleFields" class="row3" style="display:none;">
+          <div><label>Qty Sold<input name="quantity_sold" type="number" step="1" min="0" value="0"></label></div>
+          <div><label>Selling Price/Unit (BDT)<input name="selling_price_per_unit" type="number" step="0.01" min="0" placeholder="defaults to RSP"></label></div>
+          <div><label>Commission % (optional)<input name="commission_rate_applied" type="number" step="0.01" min="0" max="100" placeholder="uses supplier default if empty"></label></div>
+        </div>
+
+        <div id="adjustFields" class="row" style="display:none;">
+          <div><label>Qty Adjustment (can be negative)<input name="quantity_adjustment" type="number" step="1" value="0"></label></div>
+          <div><label>Note<input name="note" placeholder="Reason"></label></div>
+        </div>
+
+        <div class="row">
+          <div><label>Date (optional)<input name="date" type="date"></label></div>
+          <div><label>Reference/Title (optional)<input name="title" placeholder="e.g., TRX-2025-0001"></label></div>
+        </div>
+        <div class="small hint">Tip: If Commission % is blank for sales, we’ll use the Supplier’s default commission if selected.</div>
+
+        <div class="preview" id="txnPreview" aria-live="polite"></div>
+
+        <div class="gap"></div>
+        <button class="btn primary" type="submit">Add Transaction</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Filters</h3>
+      <div class="toolbar">
+        <label style="min-width:220px;">Book
+          <select id="filterBook"></select>
+        </label>
+        <label style="min-width:220px;">Supplier
+          <select id="filterSupplier"></select>
+        </label>
+        <label style="min-width:160px;">Type
+          <select id="filterType">
+            <option value="">All</option>
+            <option value="purchase">Purchase</option>
+            <option value="sale">Sale</option>
+            <option value="adjustment">Adjustment</option>
+          </select>
+        </label>
+        <input id="filterSearch" placeholder="Search ref/book/supplier..." style="min-width:240px;" />
+        <button class="btn" id="clearFilters">Clear</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Transactions</h2>
+      <div id="txnsTableWrap" style="margin-top:8px;"></div>
+    </div>
+  </section>
+
+  <section id="data">
+    <div class="card">
+      <h2>Data Management</h2>
+      <div class="toolbar">
+        <button class="btn" id="exportBtn">Export JSON</button>
+        <label class="btn">
+          Import JSON
+          <input type="file" id="importFile" accept="application/json" style="display:none;">
+        </label>
+        <button class="btn" id="exportBooksCsv">Export Books CSV</button>
+        <button class="btn" id="exportTxnsCsv">Export Transactions CSV</button>
+        <button class="btn" id="seedBtn">Load Sample Data</button>
+        <button class="btn danger" id="resetBtn">Reset All (clear local data)</button>
+      </div>
+      <div class="small muted" style="margin-top:8px;">
+        This prototype stores data in your browser (localStorage). Export before clearing or switching devices.
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Modal + Toast roots -->
+<div class="modal-root" id="modalRoot" aria-hidden="true">
+  <div class="modal-backdrop"></div>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <h3 id="modalTitle" style="margin:0;">Edit</h3>
+      <button class="icon-btn" id="modalClose"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>Close</button>
+    </div>
+    <div id="modalBody" class="row-stack"></div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn primary" id="modalSave">Save</button>
+    </div>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+  // --- Utilities ---
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const fmt = n => (isNaN(n) ? '—' : Number(n).toLocaleString(undefined, {maximumFractionDigits:2}));
+  const toISODate = (d) => new Date(d || Date.now()).toISOString();
+  const toShortDate = (d) => new Date(d).toISOString().slice(0, 10);
+  const THEME_KEY = 'bookOps_theme';
+
+  function toast(msg, type='ok', timeout=2600) {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.textContent = msg;
+    $('#toasts').appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(8px)'; }, timeout);
+    setTimeout(() => t.remove(), timeout + 400);
+  }
+  function toastAction(msg, actionLabel, actionFn, type='ok', timeout=5000) {
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<span>${msg}</span> <button class="btn" style="padding:4px 8px; margin-left:8px;">${actionLabel}</button>`;
+    const btn = t.querySelector('button');
+    btn.addEventListener('click', () => { try { actionFn?.(); } finally { t.remove(); } });
+    $('#toasts').appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(8px)'; }, timeout);
+    setTimeout(() => t.remove(), timeout + 400);
+  }
+
+  function setTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem(THEME_KEY, theme);
+    $('#themeBtn').innerHTML = themeBtnHtml(theme);
+    renderCharts();
+  }
+  function themeBtnHtml(theme) {
+    return `${theme === 'dark'
+      ? '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05 5.636 5.636m12.728 0-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>'
+      : '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21.64 13a9 9 0 11-10.63-10.63 7 7 0 1010.63 10.63z"/></svg>'} Theme`;
+  }
+
+  function debounce(fn, wait=220) {
+    let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+  }
+
+  function timeAgo(d) {
+    const now = Date.now();
+    const ts = new Date(d).getTime();
+    const s = Math.max(1, Math.floor((now - ts) / 1000));
+    const units = [
+      ['y', 31536000],
+      ['mo', 2592000],
+      ['d', 86400],
+      ['h', 3600],
+      ['m', 60],
+      ['s', 1]
+    ];
+    for (const [label, sec] of units) {
+      if (s >= sec) {
+        const v = Math.floor(s / sec);
+        return `${v}${label} ago`;
+      }
+    }
+    return 'just now';
+  }
+
+  // Money formatter (uses settings)
+  const money = (n) => {
+    if (n == null || isNaN(n)) return '—';
+    const s = state?.settings || DEFAULT_SETTINGS;
+    try {
+      return new Intl.NumberFormat(s.locale || undefined, {
+        style: 'currency',
+        currency: s.currency || 'BDT',
+        minimumFractionDigits: s.fractionDigits ?? 2,
+        maximumFractionDigits: s.fractionDigits ?? 2
+      }).format(Number(n));
+    } catch {
+      return fmt(n);
+    }
+  };
+
+  function setHeaderOffsetVar() {
+    const h = document.querySelector('header')?.offsetHeight || 64;
+    document.documentElement.style.setProperty('--header-h', `${h}px`);
+  }
+  window.addEventListener('resize', debounce(setHeaderOffsetVar, 100));
+
+  // --- State & Persistence ---
+  const STORAGE_KEY = 'bookOps_v1';
+  const DEFAULT_SETTINGS = { currency: 'BDT', locale: undefined, fractionDigits: 2, allowNegativeStock: false };
+
+  const initialState = () => ({
+    meta: { version: 2 },
+    settings: { ...DEFAULT_SETTINGS },
+    nextIds: { book: 1, supplier: 1, txn: 1 },
+    books: [],
+    suppliers: [],
+    txns: []
+  });
+
+  function migrateState(s) {
+    if (!s || typeof s !== 'object') return initialState();
+    if (!s.meta || s.meta.version < 2) {
+      s.meta = { version: 2 };
+      s.settings = s.settings || { ...DEFAULT_SETTINGS };
+      (s.txns || []).forEach(t => {
+        if (t.type === 'purchase') {
+          if (t.amount_paid == null || isNaN(t.amount_paid)) t.amount_paid = 0;
+        }
+      });
+    }
+    s.settings = { ...DEFAULT_SETTINGS, ...(s.settings || {}) };
+    fixNextIds(s);
+    return s;
+  }
+  function fixNextIds(s) {
+    const next = { book: 1, supplier: 1, txn: 1 };
+    for (const b of (s.books || [])) next.book = Math.max(next.book, (b.id||0)+1);
+    for (const u of (s.suppliers || [])) next.supplier = Math.max(next.supplier, (u.id||0)+1);
+    for (const t of (s.txns || [])) next.txn = Math.max(next.txn, (t.id||0)+1);
+    s.nextIds = next;
+  }
+
+  let state = loadState();
+  const ui = {
+    bookSort: { key:'title', dir:'asc' },
+    supplierSort: { key:'name', dir:'asc' },
+    txnSort: { key:'date', dir:'desc' },
+    searchBooks: '',
+    searchSuppliers: '',
+    searchTxns: '',
+    showLowOnly: false
+  };
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const s = raw ? JSON.parse(raw) : initialState();
+      return migrateState(s);
+    } catch(e) {
+      console.warn('State load error', e);
+      return initialState();
+    }
+  }
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    recomputeAll();
+    renderAll();
+  }
+  function resetAll() {
+    state = initialState();
+    saveState();
+  }
+
+  // --- Sample Data ---
+  function seedSampleData() {
+    state = initialState();
+    const sup1 = addSupplier({ name:'Alpha Books', contact:'Rafi', phone:'01234', email:'alpha@example.com', default_commission_rate:35 }, true);
+    const sup2 = addSupplier({ name:'Beta Imports', contact:'Mina', phone:'09876', email:'beta@example.com', default_commission_rate:25 }, true);
+    const b1 = addBook({ title:'Intro to WordPress Ops', author:'Team', isbn:'978000000001', purchase_cost_per_unit:2000, minimum_stock_level:10, recommended_selling_price:0, book_condition:'New' }, true);
+    const b2 = addBook({ title:'Efficient Inventory', author:'Dev', isbn:'978000000002', purchase_cost_per_unit:1500, minimum_stock_level:5, recommended_selling_price:0, book_condition:'New' }, true);
+
+    addTxn({ type:'purchase', book_id:b1.id, supplier_id:sup1.id, quantity_received:80, purchase_cost_per_unit:2000, payment_status:'pending', amount_paid:0, date:toISODate(), title:'Initial PO' }, true);
+    addTxn({ type:'purchase', book_id:b2.id, supplier_id:sup2.id, quantity_received:50, purchase_cost_per_unit:1500, payment_status:'paid', amount_paid:75000, date:toISODate(), title:'PO-2' }, true);
+    addTxn({ type:'sale', book_id:b1.id, supplier_id:sup1.id, quantity_sold:10, selling_price_per_unit:3000, commission_rate_applied:'', date:toISODate(), title:'Sale-1' }, true);
+
+    saveState();
+    toast('Sample data loaded', 'ok');
+  }
+
+  // --- Models and CRUD ---
+  function nextId(kind) { return state.nextIds[kind]++; }
+
+  function addBook(data, silent=false) {
+    const isbn = (data.isbn||'').trim();
+    if (isbn && state.books.some(b => (b.isbn||'').trim() === isbn)) {
+      toast('A book with this ISBN already exists', 'warn');
+      return null;
+    }
+    const book = {
+      id: nextId('book'),
+      title: (data.title||'').trim(),
+      author: (data.author||'').trim(),
+      isbn,
+      purchase_cost_per_unit: parseFloat(data.purchase_cost_per_unit)||0,
+      minimum_stock_level: parseInt(data.minimum_stock_level||0),
+      recommended_selling_price: parseFloat(data.recommended_selling_price)||0,
+      book_condition: (data.book_condition||'').trim(),
+      average_cost_per_unit: 0,
+      current_inventory_count: 0
+    };
+    state.books.push(book);
+    if (!silent) { saveState(); toast('Book added', 'ok'); }
+    return book;
+  }
+  function updateBook(id, patch) {
+    const b = state.books.find(x=>x.id===id); if (!b) return;
+    Object.assign(b, {
+      title: (patch.title ?? b.title).trim(),
+      author: (patch.author ?? b.author).trim(),
+      isbn: (patch.isbn ?? b.isbn).trim(),
+      purchase_cost_per_unit: patch.purchase_cost_per_unit!=null ? parseFloat(patch.purchase_cost_per_unit)||0 : b.purchase_cost_per_unit,
+      minimum_stock_level: patch.minimum_stock_level!=null ? parseInt(patch.minimum_stock_level)||0 : b.minimum_stock_level,
+      recommended_selling_price: patch.recommended_selling_price!=null ? parseFloat(patch.recommended_selling_price)||0 : b.recommended_selling_price,
+      book_condition: (patch.book_condition ?? b.book_condition).trim()
+    });
+    saveState(); toast('Book updated', 'ok');
+  }
+  function deleteBook(id) {
+    const inUse = state.txns.some(t=> t.book_id===id);
+    if (inUse) { toast('Cannot delete: book has transactions', 'err'); return; }
+    state.books = state.books.filter(b=>b.id!==id);
+    saveState(); toast('Book deleted', 'ok');
+  }
+
+  function addSupplier(data, silent=false) {
+    const s = {
+      id: nextId('supplier'),
+      name:(data.name||'').trim(),
+      contact:(data.contact||'').trim(),
+      phone:(data.phone||'').trim(),
+      email:(data.email||'').trim(),
+      default_commission_rate: parseFloat(data.default_commission_rate)||0
+    };
+    state.suppliers.push(s);
+    if (!silent) { saveState(); toast('Supplier added', 'ok'); }
+    return s;
+  }
+  function updateSupplier(id, patch) {
+    const s = state.suppliers.find(x=>x.id===id); if (!s) return;
+    Object.assign(s, {
+      name: (patch.name ?? s.name).trim(),
+      contact: (patch.contact ?? s.contact).trim(),
+      phone: (patch.phone ?? s.phone).trim(),
+      email: (patch.email ?? s.email).trim(),
+      default_commission_rate: patch.default_commission_rate!=null ? parseFloat(patch.default_commission_rate)||0 : s.default_commission_rate
+    });
+    saveState(); toast('Supplier updated', 'ok');
+  }
+  function deleteSupplier(id) {
+    const inUse = state.txns.some(t=> t.supplier_id===id);
+    if (inUse) { toast('Cannot delete: supplier referenced by transactions', 'err'); return; }
+    state.suppliers = state.suppliers.filter(s=>s.id!==id);
+    saveState(); toast('Supplier deleted', 'ok');
+  }
+
+  function addTxn(data, silent=false) {
+    const t = {
+      id: nextId('txn'),
+      type: data.type, // purchase | sale | adjustment
+      book_id: parseInt(data.book_id)||null,
+      supplier_id: data.supplier_id ? parseInt(data.supplier_id) : null,
+      quantity_received: parseInt(data.quantity_received||0),
+      quantity_sold: parseInt(data.quantity_sold||0),
+      quantity_adjustment: parseInt(data.quantity_adjustment||0),
+      purchase_cost_per_unit: data.purchase_cost_per_unit !== undefined && data.purchase_cost_per_unit !== '' ? parseFloat(data.purchase_cost_per_unit) : null,
+      selling_price_per_unit: data.selling_price_per_unit !== undefined && data.selling_price_per_unit !== '' ? parseFloat(data.selling_price_per_unit) : null,
+      commission_rate_applied: data.commission_rate_applied !== undefined && data.commission_rate_applied !== '' ? parseFloat(data.commission_rate_applied) : null,
+      payment_status: data.payment_status || 'pending',
+      amount_paid: data.amount_paid != null && data.amount_paid !== '' ? parseFloat(data.amount_paid) : 0,
+      date: toISODate(data.date),
+      title: (data.title||'').trim(),
+      derived: {}
+    };
+    state.txns.push(t);
+    if (!silent) { saveState(); toast('Transaction added', 'ok'); }
+    return t;
+  }
+  function updateTxn(id, patch) {
+    const t = state.txns.find(x=>x.id===id); if (!t) return;
+    t.title = (patch.title ?? t.title).trim();
+    t.date = patch.date ? new Date(patch.date).toISOString() : t.date;
+
+    if (t.type==='purchase') {
+      t.quantity_received = patch.quantity_received!=null ? parseInt(patch.quantity_received||0) : t.quantity_received;
+      t.purchase_cost_per_unit = patch.purchase_cost_per_unit!=null ? parseFloat(patch.purchase_cost_per_unit||0) : t.purchase_cost_per_unit;
+      t.payment_status = patch.payment_status ?? t.payment_status;
+      t.amount_paid = patch.amount_paid!=null ? parseFloat(patch.amount_paid||0) : t.amount_paid;
+    } else if (t.type==='sale') {
+      t.quantity_sold = patch.quantity_sold!=null ? parseInt(patch.quantity_sold||0) : t.quantity_sold;
+      t.selling_price_per_unit = patch.selling_price_per_unit!=null ? parseFloat(patch.selling_price_per_unit||0) : t.selling_price_per_unit;
+      t.commission_rate_applied = patch.commission_rate_applied!=null ? parseFloat(patch.commission_rate_applied||0) : t.commission_rate_applied;
+    } else if (t.type==='adjustment') {
+      t.quantity_adjustment = patch.quantity_adjustment!=null ? parseInt(patch.quantity_adjustment||0) : t.quantity_adjustment;
+      t.note = patch.note ?? t.note;
+    }
+    saveState();
+    toast('Transaction updated', 'ok');
+  }
+  function deleteTxn(id) {
+    state.txns = state.txns.filter(t=>t.id!==id);
+    saveState(); toast('Transaction deleted', 'ok');
+  }
+
+  // --- Computation (inventory & finance) ---
+  function recomputeAll() {
+    for (const b of state.books) {
+      let stock = 0;
+      let avgCost = b.purchase_cost_per_unit || 0;
+      const txns = state.txns
+        .filter(t => t.book_id === b.id)
+        .slice()
+        .sort((a,c) => (new Date(a.date) - new Date(c.date)) || (a.id - c.id));
+
+      for (const t of txns) {
+        const unitCost = (t.purchase_cost_per_unit != null ? t.purchase_cost_per_unit : (b.purchase_cost_per_unit||0));
+        const supplier = state.suppliers.find(s => s.id === t.supplier_id);
+        const comm = (t.commission_rate_applied != null ? t.commission_rate_applied : (supplier ? supplier.default_commission_rate : 0)) || 0;
+        
+        t.derived.before_stock = stock;
+
+        if (t.type === 'purchase') {
+          const q = Math.max(0, t.quantity_received||0);
+          if (q > 0) {
+            const totalBefore = stock * avgCost;
+            const totalAdded = q * unitCost;
+            const newStock = stock + q;
+            avgCost = newStock > 0 ? (totalBefore + totalAdded) / newStock : avgCost;
+            stock = newStock;
+          }
+          t.derived.total_purchase_cost = (unitCost || 0) * (t.quantity_received||0);
+          t.derived.after_stock = stock;
+          t.derived.avg_cost_at_txn = avgCost;
+        }
+        else if (t.type === 'sale') {
+          const q = Math.max(0, t.quantity_sold||0);
+          const price = (t.selling_price_per_unit != null) ? t.selling_price_per_unit : (b.recommended_selling_price||0);
+          const revenue = price * q;
+          const commissionAmount = revenue * (comm/100);
+          const cogs = avgCost * q;
+          const grossProfit = revenue - cogs;
+          const netProfit = grossProfit - commissionAmount;
+
+          stock = stock - q;
+          t.derived.gross_revenue = revenue;
+          t.derived.commission_amount = commissionAmount;
+          t.derived.gross_profit = grossProfit;
+          t.derived.net_profit_after_commission = netProfit;
+          t.derived.after_stock = stock;
+          t.derived.avg_cost_at_txn = avgCost;
+        }
+        else if (t.type === 'adjustment') {
+          const q = parseInt(t.quantity_adjustment||0);
+          stock = stock + q;
+          t.derived.after_stock = stock;
+          t.derived.avg_cost_at_txn = avgCost;
+        }
+      }
+      b.current_inventory_count = stock;
+      b.average_cost_per_unit = Number.isFinite(avgCost) ? avgCost : 0;
+
+      if ((!b.recommended_selling_price || b.recommended_selling_price <= 0) && b.purchase_cost_per_unit > 0) {
+        const defaultComm = (state.suppliers[0]?.default_commission_rate) || 35;
+        if (defaultComm > 0 && defaultComm < 100) {
+          b.recommended_selling_price = Math.ceil(b.purchase_cost_per_unit / (1 - (defaultComm/100)));
+        }
+      }
+    }
+  }
+
+  // --- Rendering ---
+  function renderAll() {
+    renderBooksTable();
+    renderSuppliersTable();
+    renderTxnSelects();
+    renderTxnsTable();
+    renderKPIs();
+    renderRecent();
+    renderCharts();
+    updateTxnPreview();
+  }
+
+  function renderKPIs() {
+    let totalValue = 0, lowCount = 0, pending = 0, profit30 = 0;
+    const now = new Date();
+    const d30 = new Date(now.getTime() - 30*24*60*60*1000);
+    for (const b of state.books) {
+      totalValue += (b.current_inventory_count||0) * (b.average_cost_per_unit||0);
+      if ((b.minimum_stock_level||0) > 0 && (b.current_inventory_count||0) <= (b.minimum_stock_level||0)) lowCount++;
+    }
+    for (const t of state.txns) {
+      if (t.type === 'purchase') {
+        const total = t.derived.total_purchase_cost || 0;
+        if (t.payment_status === 'pending' || t.payment_status === 'partial') {
+          const paid = Math.max(0, t.amount_paid||0);
+          pending += Math.max(0, total - paid);
+        }
+      }
+      if (t.type === 'sale' && new Date(t.date) >= d30) {
+        profit30 += (t.derived.net_profit_after_commission || 0);
+      }
+    }
+    $('#kpiValue').textContent = money(totalValue);
+    $('#kpiLow').textContent = lowCount;
+    $('#kpiPending').textContent = money(pending);
+    $('#kpiProfit30').textContent = money(profit30);
+  }
+
+  function renderRecent() {
+    const container = $('#recentTxns');
+    const recent = state.txns.slice().sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,6);
+    if (!recent.length) {
+      container.innerHTML = `<div class="small muted">No transactions yet. <button class="btn" id="goAddTxnBtn" style="margin-left:8px;">Add one</button></div>`;
+      return;
+    }
+    container.classList.remove('muted', 'small');
+    const items = recent.map(t => {
+      const b = state.books.find(x=>x.id===t.book_id);
+      const s = state.suppliers.find(x=>x.id===t.supplier_id);
+      const dd = timeAgo(t.date);
+
+      let meta = '';
+      let sumTxt = '';
+      let sumCls = 'neutral';
+
+      if (t.type === 'purchase') {
+        const unitCost = (t.purchase_cost_per_unit ?? b?.purchase_cost_per_unit) || 0;
+        const qty = t.quantity_received || 0;
+        const total = (t.derived.total_purchase_cost || (unitCost * qty)) || 0;
+        const due = Math.max(0, total - (t.amount_paid||0));
+        meta = `Qty ${qty} @ ${money(unitCost)} · ${dd}`;
+        sumTxt = due > 0 ? `Due ${money(due)}` : `Cost ${money(total)}`;
+        sumCls = due > 0 ? 'bad' : 'neutral';
+      } else if (t.type === 'sale') {
+        const qty = t.quantity_sold || 0;
+        const price = (t.selling_price_per_unit ?? b?.recommended_selling_price) || 0;
+        const profit = t.derived.net_profit_after_commission || 0;
+        meta = `Qty ${qty} @ ${money(price)} · ${dd}`;
+        sumTxt = `Net Profit ${money(profit)}`;
+        sumCls = profit >= 0 ? 'ok' : 'bad';
+      } else {
+        const q = t.quantity_adjustment || 0;
+        meta = `Adj ${q} ${t.note ? '· '+t.note : ''} · ${dd}`;
+        sumTxt = `—`;
+        sumCls = 'neutral';
+      }
+
+      const supplierTxt = s?.name ? ` · ${s.name}` : '';
+      return `
+        <div class="recent-item" data-txn-id="${t.id}" data-book-id="${t.book_id||''}" data-type="${t.type}">
+          <div class="recent-left">
+            <span class="pill ${t.type}">${t.type}</span>
+            <div style="min-width:0;">
+              <div class="recent-title">${t.title || '(no ref)'} <span class="recent-meta">— ${b?.title||'—'}${supplierTxt}</span></div>
+              <div class="recent-meta">${meta}</div>
+            </div>
+          </div>
+          <div class="recent-right">
+            <div class="recent-sum ${sumCls}">${sumTxt}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    container.innerHTML = `<div class="recent-list">${items}</div>`;
+  }
+
+  function renderBooksTable() {
+    const search = (ui.searchBooks||'').toLowerCase();
+
+    const getSortVal = (b, key) => {
+      switch(key) {
+        case 'stock': return b.current_inventory_count;
+        case 'avg_cost': return b.average_cost_per_unit;
+        case 'min': return b.minimum_stock_level;
+        case 'rsp': return b.recommended_selling_price;
+        case 'unit': return b.purchase_cost_per_unit;
+        case 'isbn': return (b.isbn||'');
+        default: return (b.title||'').toLowerCase();
+      }
+    };
+
+    let rowsData = state.books
+      .filter(b => !ui.showLowOnly || ((b.minimum_stock_level||0) > 0 && (b.current_inventory_count||0) <= (b.minimum_stock_level||0)))
+      .filter(b => !search || [b.title,b.author,b.isbn].join(' ').toLowerCase().includes(search))
+      .sort((a,b)=> {
+        const k = ui.bookSort.key; const dir = ui.bookSort.dir==='asc'?1:-1;
+        const va = getSortVal(a, k);
+        const vb = getSortVal(b, k);
+        if (typeof va === 'string') return va.localeCompare(vb) * dir;
+        return (va > vb ? 1 : va < vb ? -1 : 0) * dir;
+      });
+
+    const rows = rowsData.map(b => {
+      const stockCls = (b.minimum_stock_level>0 && b.current_inventory_count<=b.minimum_stock_level) ? 'danger-txt' : 'success-txt';
+      const lowBadge = (b.minimum_stock_level>0 && b.current_inventory_count<=b.minimum_stock_level) ? `<span class="badge" style="color:#fca5a5; border-color:#7f1d1d;">Low</span>` : '';
+      return `<tr>
+        <td>${b.title} ${lowBadge}<div class="muted small">${b.author || ''}</div></td>
+        <td>${b.isbn || ''}</td>
+        <td class="right">${money(b.purchase_cost_per_unit)}</td>
+        <td class="right ${stockCls}">${fmt(b.current_inventory_count)}</td>
+        <td class="right">${money(b.average_cost_per_unit)}</td>
+        <td class="right">${fmt(b.minimum_stock_level)}</td>
+        <td class="right">${money(b.recommended_selling_price||0)}</td>
+        <td class="right">
+          <div class="actions">
+            <button class="icon-btn sm" data-action="edit-book" data-id="${b.id}" title="Edit">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="icon-btn sm" data-action="delete-book" data-id="${b.id}" title="Delete">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="3 6 5 6 21 6"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const sortArrow = (key) => ui.bookSort.key===key ? (ui.bookSort.dir==='asc'?'▲':'▼') : '';
+
+    $('#booksTableWrap').innerHTML = `
+      <div class="table-scroll">
+        <table>
+          <thead><tr>
+            <th class="sort ${ui.bookSort.key==='title'?'active':''}" data-sort="title">Title <span class="dir">${sortArrow('title')}</span></th>
+            <th class="sort ${ui.bookSort.key==='isbn'?'active':''}" data-sort="isbn">ISBN <span class="dir">${sortArrow('isbn')}</span></th>
+            <th class="right sort ${ui.bookSort.key==='unit'?'active':''}" data-sort="unit">Unit Cost <span class="dir">${sortArrow('unit')}</span></th>
+            <th class="right sort ${ui.bookSort.key==='stock'?'active':''}" data-sort="stock">Stock <span class="dir">${sortArrow('stock')}</span></th>
+            <th class="right sort ${ui.bookSort.key==='avg_cost'?'active':''}" data-sort="avg_cost">Avg Cost <span class="dir">${sortArrow('avg_cost')}</span></th>
+            <th class="right sort ${ui.bookSort.key==='min'?'active':''}" data-sort="min">Min <span class="dir">${sortArrow('min')}</span></th>
+            <th class="right sort ${ui.bookSort.key==='rsp'?'active':''}" data-sort="rsp">RSP <span class="dir">${sortArrow('rsp')}</span></th>
+            <th class="right">Actions</th>
+          </tr></thead>
+          <tbody>${rows || `<tr><td colspan="8" class="muted">No books yet</td></tr>`}</tbody>
+        </table>
+      </div>`;
+  }
+
+  function renderSuppliersTable() {
+    const search = (ui.searchSuppliers||'').toLowerCase();
+    const rowsData = state.suppliers
+      .filter(s => !search || [s.name,s.contact,s.phone,s.email].join(' ').toLowerCase().includes(search))
+      .sort((a,b)=> (a[ui.supplierSort.key]||'').localeCompare(b[ui.supplierSort.key]||'') * (ui.supplierSort.dir==='asc'?1:-1));
+
+    const rows = rowsData.map(s => `<tr>
+      <td>${s.name}<div class="muted small">${s.contact||''} ${s.phone? ' · '+s.phone:''} ${s.email? ' · '+s.email:''}</div></td>
+      <td class="right">${fmt(s.default_commission_rate)}%</td>
+      <td class="right">
+        <div class="actions">
+          <button class="icon-btn sm" data-action="edit-supplier" data-id="${s.id}" title="Edit">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="icon-btn sm" data-action="delete-supplier" data-id="${s.id}" title="Delete">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="3 6 5 6 21 6"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+          </button>
+        </div>
+      </td>
+    </tr>`).join('');
+    $('#suppliersTableWrap').innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th class="sort ${ui.supplierSort.key==='name'?'active':''}" data-sort="name">Supplier <span class="dir">${ui.supplierSort.dir==='asc'?'▲':'▼'}</span></th>
+          <th class="right">Default Commission</th>
+          <th class="right">Actions</th>
+        </tr></thead>
+        <tbody>${rows || `<tr><td colspan="3" class="muted">No suppliers yet</td></tr>`}</tbody>
+      </table>
+    </div>`;
+  }
+
+  function renderTxnSelects() {
+    const bookOpts = ['<option value="">Select...</option>'].concat(state.books.map(b => `<option value="${b.id}">${b.title}</option>`)).join('');
+    $('#txnBook').innerHTML = bookOpts;
+    const supplierOpts = ['<option value="">(none)</option>'].concat(state.suppliers.map(s => `<option value="${s.id}">${s.name}</option>`)).join('');
+    $('#txnSupplier').innerHTML = supplierOpts;
+
+    const fb = ['<option value="">All</option>'].concat(state.books.map(b => `<option value="${b.id}">${b.title}</option>`)).join('');
+    $('#filterBook').innerHTML = fb;
+    const fs = ['<option value="">All</option>'].concat(state.suppliers.map(s => `<option value="${s.id}">${s.name}</option>`)).join('');
+    $('#filterSupplier').innerHTML = fs;
+  }
+
+  // --- Transactions table (with scroll wrapper) ---
+  function renderTxnsTable() {
+    let txns = state.txns.slice();
+
+    const sortVal = (t, key) => {
+      const book = state.books.find(x=>x.id===t.book_id);
+      const supplier = state.suppliers.find(x=>x.id===t.supplier_id);
+      switch (key) {
+        case 'date': return new Date(t.date).getTime();
+        case 'type': return t.type;
+        case 'book': return (book?.title||'').toLowerCase();
+        case 'supplier': return (supplier?.name||'').toLowerCase();
+        case 'qty':
+          return t.type==='purchase' ? (t.quantity_received||0) :
+                 t.type==='sale' ? (t.quantity_sold||0) :
+                 (t.quantity_adjustment||0);
+        case 'total':
+          return t.type==='purchase' ? (t.derived.total_purchase_cost||0) :
+                 t.type==='sale' ? (t.derived.net_profit_after_commission||0) : 0;
+        default: return new Date(t.date).getTime();
+      }
+    };
+
+    const k = ui.txnSort.key, dir = ui.txnSort.dir==='asc'?1:-1;
+    txns.sort((a,b) => {
+      const aval = sortVal(a, k), bval = sortVal(b, k);
+      return (aval > bval ? 1 : aval < bval ? -1 : 0) * dir;
+    });
+
+    const fBook = $('#filterBook').value;
+    const fSup = $('#filterSupplier').value;
+    const fType = $('#filterType').value;
+    const q = ($('#filterSearch').value||'').toLowerCase();
+    if (fBook) txns = txns.filter(t => t.book_id === parseInt(fBook));
+    if (fSup)  txns = txns.filter(t => t.supplier_id === parseInt(fSup));
+    if (fType) txns = txns.filter(t => t.type === fType);
+    if (q) txns = txns.filter(t => {
+      const b = state.books.find(x=>x.id===t.book_id);
+      const s = state.suppliers.find(x=>x.id===t.supplier_id);
+      return [t.title, b?.title, s?.name].join(' ').toLowerCase().includes(q);
+    });
+
+    const rows = txns.map(t => {
+      const b = state.books.find(x => x.id === t.book_id);
+      const s = state.suppliers.find(x => x.id === t.supplier_id);
+      
+      let qtyText = '—', totalHtml = '—', stockChangeHtml = '—';
+
+      if (t.type === 'purchase') {
+        const q = t.quantity_received || 0;
+        qtyText = `+${q}`;
+        const outstanding = Math.max(0, (t.derived.total_purchase_cost||0) - (t.amount_paid||0));
+        totalHtml = `
+          <div>Cost <strong style="color:var(--warn);">${money(t.derived.total_purchase_cost||0)}</strong></div>
+          <div class="muted small">Due ${money(outstanding)}</div>`;
+        stockChangeHtml = `${fmt(t.derived.before_stock)} &rarr; <strong class="success-txt">${fmt(t.derived.after_stock)}</strong>`;
+      }
+      if (t.type === 'sale') {
+        const q = t.quantity_sold || 0;
+        const profit = t.derived.net_profit_after_commission || 0;
+        qtyText = `-${q}`;
+        totalHtml = `<div>Net Profit <strong class="${profit >= 0 ? 'success-txt' : 'danger-txt'}">${money(profit)}</strong></div>`;
+        stockChangeHtml = `${fmt(t.derived.before_stock)} &rarr; <strong class="${(t.derived.after_stock < t.derived.before_stock) ? 'danger-txt' : 'success-txt'}">${fmt(t.derived.after_stock)}</strong>`;
+      }
+      if (t.type === 'adjustment') {
+        const q = t.quantity_adjustment || 0;
+        qtyText = (q >= 0 ? '+' : '') + q;
+        totalHtml = `<span class="muted">—</span>`;
+        stockChangeHtml = `${fmt(t.derived.before_stock)} &rarr; <strong>${fmt(t.derived.after_stock)}</strong>`;
+      }
+
+      return `<tr data-txn-id="${t.id}">
+        <td><span class="pill ${t.type}">${t.type}</span></td>
+        <td>
+            <div>${t.title||'(no ref)'}</div>
+            <div class="muted small" title="${new Date(t.date).toLocaleString()}">${toShortDate(t.date)}</div>
+        </td>
+        <td>${b?.title||'—'}</td>
+        <td>${s?.name||'—'}</td>
+        <td class="right">${qtyText}</td>
+        <td class="right">${totalHtml}</td>
+        <td class="right">${stockChangeHtml}</td>
+        <td class="right">
+          <div class="actions">
+            <button class="icon-btn sm" data-action="edit-txn" data-id="${t.id}" title="Edit">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="icon-btn sm" data-action="delete-txn" data-id="${t.id}" title="Delete">
+              <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline stroke-width="2" stroke-linecap="round" stroke-linejoin="round" points="3 6 5 6 21 6"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const sortArrow = (key) => ui.txnSort.key===key ? (ui.txnSort.dir==='asc'?'▲':'▼') : '';
+    $('#txnsTableWrap').innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="sort ${ui.txnSort.key==='type'?'active':''}" data-sort="type">Type <span class="dir">${sortArrow('type')}</span></th>
+            <th class="sort ${ui.txnSort.key==='date'?'active':''}" data-sort="date">Ref/Date <span class="dir">${sortArrow('date')}</span></th>
+            <th class="sort ${ui.txnSort.key==='book'?'active':''}" data-sort="book">Book <span class="dir">${sortArrow('book')}</span></th>
+            <th class="sort ${ui.txnSort.key==='supplier'?'active':''}" data-sort="supplier">Supplier <span class="dir">${sortArrow('supplier')}</span></th>
+            <th class="right sort ${ui.txnSort.key==='qty'?'active':''}" data-sort="qty">Qty <span class="dir">${sortArrow('qty')}</span></th>
+            <th class="right sort ${ui.txnSort.key==='total'?'active':''}" data-sort="total">Profit / Cost <span class="dir">${sortArrow('total')}</span></th>
+            <th class="right">Stock Change</th>
+            <th class="right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>${rows || `<tr><td colspan="8" class="muted">No transactions yet</td></tr>`}</tbody>
+      </table>
+    </div>`;
+  }
+
+  // --- Charts ---
+  const charts = {};
+  function hexToRgb(hex) {
+    const m = hex?.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    if (!m) return {r: 96, g: 165, b: 250};
+    return { r: parseInt(m[1],16), g: parseInt(m[2],16), b: parseInt(m[3],16) };
+  }
+  function withAlpha(hex, a=0.25) {
+    const {r,g,b} = hexToRgb(hex);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function chartColors() {
+    return {
+      text: cssVar('--text') || '#0f172a',
+      grid: cssVar('--line') || '#e5e7eb',
+      bg: cssVar('--panel-2') || '#fff',
+      panel3: cssVar('--panel-3') || '#eef2f7',
+      accent: cssVar('--accent') || '#16a34a',
+      accent2: cssVar('--accent-2') || '#15803d',
+      warn: cssVar('--warn') || '#d97706',
+      danger: cssVar('--danger') || '#dc2626',
+      link: cssVar('--link') || '#2563eb',
+      muted: cssVar('--muted') || '#475569'
+    };
+  }
+  function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+  function ensureCanvas(wrapperId, canvasId) {
+    const wrap = document.getElementById(wrapperId);
+    if (!wrap) return null;
+    if (!wrap.querySelector('canvas')) {
+      wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    } else {
+      const empty = wrap.querySelector('.chart-empty');
+      if (empty) wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    }
+    return document.getElementById(canvasId);
+  }
+  function showChartEmpty(wrapperId, msg) {
+    const wrap = document.getElementById(wrapperId);
+    if (!wrap) return;
+    wrap.innerHTML = `<div class="chart-empty">${msg}</div>`;
+  }
+
+  function getLastNDaysKeys(n=90) {
+    const keys = [];
+    const now = new Date();
+    for (let i=n-1; i>=0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      keys.push(d.toISOString().slice(0,10));
+    }
+    return keys;
+  }
+
+  function renderCharts() {
+    if (!window.Chart) return;
+
+    const c = chartColors();
+
+    // 1) Sales, Profit & Purchases over last 90 days
+    const days = getLastNDaysKeys(90);
+    const mapRev = Object.fromEntries(days.map(k=>[k,0]));
+    const mapProfit = Object.fromEntries(days.map(k=>[k,0]));
+    const mapPurch = Object.fromEntries(days.map(k=>[k,0]));
+    for (const t of state.txns) {
+      const k = new Date(t.date).toISOString().slice(0,10);
+      if (!mapRev.hasOwnProperty(k)) continue;
+      if (t.type === 'sale') {
+        mapRev[k] += (t.derived.gross_revenue || 0);
+        mapProfit[k] += (t.derived.net_profit_after_commission || 0);
+      } else if (t.type === 'purchase') {
+        mapPurch[k] += (t.derived.total_purchase_cost || 0);
+      }
+    }
+    const labels = days.map(d => {
+      const dt = new Date(d);
+      return dt.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+    });
+    const revData = days.map(d => mapRev[d]);
+    const profitData = days.map(d => mapProfit[d]);
+    const purchData = days.map(d => mapPurch[d]);
+    const hasTimeData = revData.some(v=>v!==0) || profitData.some(v=>v!==0) || purchData.some(v=>v!==0);
+
+    if (!hasTimeData) {
+      destroyChart('chartSalesProfit');
+      showChartEmpty('wrapSalesProfit', 'Not enough data yet');
+    } else {
+      const ctx1 = ensureCanvas('wrapSalesProfit', 'chartSalesProfit')?.getContext('2d');
+      if (ctx1) {
+        destroyChart('chartSalesProfit');
+        charts['chartSalesProfit'] = new Chart(ctx1, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Revenue', data: revData, borderColor: c.link, backgroundColor: withAlpha(c.link, .2), tension: .3, fill: false, borderWidth: 2, pointRadius: 0 },
+              { label: 'Purchases', data: purchData, borderColor: c.warn, backgroundColor: withAlpha(c.warn, .2), tension: .3, fill: false, borderWidth: 2, pointRadius: 0 },
+              { label: 'Net Profit', data: profitData, borderColor: c.accent, backgroundColor: withAlpha(c.accent, .18), tension: .3, fill: false, borderWidth: 2, pointRadius: 0 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: { labels: { color: c.text } },
+              tooltip: {
+                backgroundColor: c.panel3,
+                titleColor: c.text,
+                bodyColor: c.text,
+                callbacks: {
+                  label: (ctx) => `${ctx.dataset.label}: ${money(ctx.parsed.y)}`
+                }
+              }
+            },
+            scales: {
+              x: { grid: { color: withAlpha(c.grid, .4) }, ticks: { color: c.text } },
+              y: { grid: { color: withAlpha(c.grid, .4) }, ticks: { color: c.text, callback: v => money(v) } }
+            }
+          }
+        });
+      }
+    }
+
+    // 2) Inventory Value by Book (Top 8)
+    const invItems = state.books.map(b => ({
+      title: b.title,
+      value: (b.current_inventory_count||0) * (b.average_cost_per_unit||0)
+    })).filter(x => x.value > 0)
+      .sort((a,b)=> b.value - a.value)
+      .slice(0, 8);
+    if (!invItems.length) {
+      destroyChart('chartInventoryValue');
+      showChartEmpty('wrapInventoryValue', 'No inventory value to display');
+    } else {
+      const labels2 = invItems.map(x => x.title.length > 28 ? x.title.slice(0,27)+'…' : x.title);
+      const data2 = invItems.map(x => x.value);
+      const palette = [c.accent, c.link, c.warn, c.danger, c.accent2, '#8b5cf6', '#06b6d4', '#f472b6'];
+      const bg2 = data2.map((_,i)=> withAlpha(palette[i % palette.length], .35));
+      const bd2 = data2.map((_,i)=> palette[i % palette.length]);
+      const ctx2 = ensureCanvas('wrapInventoryValue', 'chartInventoryValue')?.getContext('2d');
+      if (ctx2) {
+        destroyChart('chartInventoryValue');
+        charts['chartInventoryValue'] = new Chart(ctx2, {
+          type: 'bar',
+          data: { labels: labels2, datasets: [{ label:'Value', data: data2, backgroundColor: bg2, borderColor: bd2, borderWidth: 1.5 }] },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display:false },
+              tooltip: {
+                backgroundColor: c.panel3, titleColor: c.text, bodyColor: c.text,
+                callbacks: { label: (ctx)=> ` ${money(ctx.parsed.x)}` }
+              }
+            },
+            scales: {
+              x: { grid: { color: withAlpha(c.grid, .4) }, ticks: { color: c.text, callback: v => money(v) } },
+              y: { grid: { color: withAlpha(c.grid, .15) }, ticks: { color: c.text } }
+            }
+          }
+        });
+      }
+    }
+
+    // 3) Pending by Supplier (doughnut)
+    const pendingBySup = {};
+    for (const t of state.txns) {
+      if (t.type !== 'purchase') continue;
+      if (!(t.payment_status === 'pending' || t.payment_status === 'partial')) continue;
+      const total = (t.derived.total_purchase_cost || 0);
+      const outstanding = Math.max(0, total - (t.amount_paid||0));
+      if (outstanding <= 0) continue;
+      const s = state.suppliers.find(x=>x.id===t.supplier_id);
+      const key = s?.name || 'Unknown';
+      pendingBySup[key] = (pendingBySup[key] || 0) + outstanding;
+    }
+    const labels3 = Object.keys(pendingBySup);
+    const data3 = Object.values(pendingBySup);
+    if (!labels3.length) {
+      destroyChart('chartPendingSupplier');
+      showChartEmpty('wrapPendingSupplier', 'No pending payments');
+    } else {
+      const palette3 = [c.danger, c.warn, c.link, c.accent, '#8b5cf6', '#06b6d4', '#f472b6', c.accent2];
+      const bg3 = data3.map((_,i)=> withAlpha(palette3[i % palette3.length], .5));
+      const bd3 = data3.map((_,i)=> palette3[i % palette3.length]);
+      const ctx3 = ensureCanvas('wrapPendingSupplier', 'chartPendingSupplier')?.getContext('2d');
+      if (ctx3) {
+        destroyChart('chartPendingSupplier');
+        charts['chartPendingSupplier'] = new Chart(ctx3, {
+          type: 'doughnut',
+          data: { labels: labels3, datasets: [{ data: data3, backgroundColor: bg3, borderColor: bd3, borderWidth: 1.5 }] },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom', labels: { color: c.text } },
+              tooltip: {
+                backgroundColor: c.panel3, titleColor: c.text, bodyColor: c.text,
+                callbacks: { label: (ctx)=> ` ${ctx.label}: ${money(ctx.parsed)}` }
+              }
+            },
+            cutout: '58%'
+          }
+        });
+      }
+    }
+  }
+
+  // --- Transaction live preview ---
+  function updateTxnPreview() {
+    const type = $('#txnType').value;
+    const bookId = parseInt($('#txnBook').value);
+    const supplierId = parseInt($('#txnSupplier').value || 0) || null;
+    const book = state.books.find(b=>b.id===bookId);
+    const supplier = state.suppliers.find(s=>s.id===supplierId);
+
+    const $p = $('#txnPreview');
+    if (!book) { $p.innerHTML = ''; return; }
+
+    if (type==='purchase') {
+      const qty = parseInt(document.querySelector('[name="quantity_received"]').value || 0);
+      let unitCost = parseFloat(document.querySelector('[name="purchase_cost_per_unit"]').value);
+      if (isNaN(unitCost)) unitCost = book.purchase_cost_per_unit || 0;
+      const total = qty * unitCost;
+      const paid = parseFloat(document.querySelector('[name="amount_paid"]').value || 0);
+      const outstanding = Math.max(0, total - (isNaN(paid) ? 0 : paid));
+
+      $p.innerHTML = `
+        <div class="box"><div class="label">Unit Cost</div><div><strong>${money(unitCost)}</strong></div></div>
+        <div class="box"><div class="label">Qty</div><div><strong>${fmt(qty)}</strong></div></div>
+        <div class="box"><div class="label">Total Cost</div><div><strong>${money(total)}</strong></div></div>
+        <div class="box"><div class="label">Outstanding</div><div><strong>${money(outstanding)}</strong></div></div>
+        <div class="box"><div class="label">Stock after</div><div><strong>${fmt((book.current_inventory_count||0) + qty)}</strong></div></div>
+      `;
+    }
+    else if (type==='sale') {
+      const qty = parseInt(document.querySelector('[name="quantity_sold"]').value || 0);
+      let price = parseFloat(document.querySelector('[name="selling_price_per_unit"]').value);
+      if (isNaN(price)) price = book.recommended_selling_price || 0;
+      let comm = parseFloat(document.querySelector('[name="commission_rate_applied"]').value);
+      if (isNaN(comm) && supplier) comm = supplier.default_commission_rate || 0;
+      comm = isNaN(comm) ? 0 : comm;
+      
+      const revenue = price * qty;
+      const commission = revenue * (comm/100);
+      const cogs = (book.average_cost_per_unit||0) * qty;
+      const profit = revenue - commission - cogs;
+      const after = (book.current_inventory_count||0) - qty;
+
+      const warnStock = qty > (book.current_inventory_count||0) ? `<div class="small danger-txt">Warning: selling more than in stock</div>` : '';
+      const warnBelowCost = price < (book.average_cost_per_unit||0) ? `<div class="small warn-txt">Selling below avg cost</div>` : '';
+      const warnNoCost = (book.average_cost_per_unit||0) === 0 ? `<div class="small warn-txt">Warning: Avg cost is 0, profit is inflated</div>` : '';
+
+      $p.innerHTML = `
+        <div class="box"><div class="label">Revenue</div><div><strong>${money(revenue)}</strong></div>${warnBelowCost}</div>
+        <div class="box"><div class="label">Commission (${fmt(comm)}%)</div><div><strong>${money(commission)}</strong></div></div>
+        <div class="box"><div class="label">COGS (Avg Cost)</div><div><strong>${money(cogs)}</strong></div>${warnNoCost}</div>
+        <div class="box"><div class="label">Net Profit</div><div><strong class="${profit>=0?'ok-txt':'danger-txt'}">${money(profit)}</strong></div></div>
+        <div class="box"><div class="label">Stock after</div><div><strong>${fmt(after)}</strong></div>${warnStock}</div>
+      `;
+    }
+    else if (type==='adjustment') {
+      const q = parseInt(document.querySelector('[name="quantity_adjustment"]').value||0);
+      const after = (book.current_inventory_count||0) + q;
+      $p.innerHTML = `
+        <div class="box"><div class="label">Adjustment</div><div><strong>${fmt(q)}</strong></div></div>
+        <div class="box"><div class="label">Stock after</div><div><strong>${fmt(after)}</strong></div></div>
+        <div class="box"><div class="label">Note</div><div class="small muted">${document.querySelector('[name="note"]').value||'—'}</div></div>
+      `;
+    } else {
+      $p.innerHTML = '';
+    }
+  }
+
+  // --- Modal helpers ---
+  let currentModal = null;
+  function openModal(title, bodyHtml, onSave) {
+    currentModal = { onSave };
+    $('#modalTitle').textContent = title;
+    $('#modalBody').innerHTML = bodyHtml;
+    $('#modalRoot').classList.add('active');
+    $('#modalRoot').setAttribute('aria-hidden','false');
+  }
+  function closeModal() {
+    $('#modalRoot').classList.remove('active');
+    $('#modalRoot').setAttribute('aria-hidden','true');
+    currentModal = null;
+  }
+  function openEditTxnModal(t) {
+    const b = state.books.find(x=>x.id===t.book_id);
+    const s = state.suppliers.find(x=>x.id===t.supplier_id);
+    const dateVal = toShortDate(t.date);
+
+    let fields = `
+      <form id="editTxnForm" class="row-stack">
+        <div class="row">
+          <div><label>Title<input name="title" value="${t.title||''}"></label></div>
+          <div><label>Date<input name="date" type="date" value="${dateVal}"></label></div>
+        </div>
+        <div><div class="small muted">Book: ${b?.title||'—'} ${s? ' · Supplier: '+s.name:''}</div></div>
+    `;
+
+    if (t.type==='purchase') {
+      fields += `
+        <div class="row3">
+          <div><label>Qty Received<input name="quantity_received" type="number" step="1" min="0" value="${t.quantity_received||0}"></label></div>
+          <div><label>Unit Cost (BDT)<input name="purchase_cost_per_unit" type="number" step="0.01" min="0" value="${t.purchase_cost_per_unit ?? b?.purchase_cost_per_unit ?? 0}"></label></div>
+          <div><label>Payment Status
+            <select name="payment_status">
+              <option value="pending" ${t.payment_status==='pending'?'selected':''}>pending</option>
+              <option value="partial" ${t.payment_status==='partial'?'selected':''}>partial</option>
+              <option value="paid" ${t.payment_status==='paid'?'selected':''}>paid</option>
+            </select></label>
+          </div>
+        </div>
+        <div><label>Amount Paid (BDT)<input name="amount_paid" type="number" step="0.01" min="0" value="${t.amount_paid||0}"></label></div>
+      `;
+    } else if (t.type==='sale') {
+      fields += `
+        <div class="row3">
+          <div><label>Qty Sold<input name="quantity_sold" type="number" step="1" min="0" value="${t.quantity_sold||0}"></label></div>
+          <div><label>Selling Price/Unit (BDT)<input name="selling_price_per_unit" type="number" step="0.01" min="0" value="${t.selling_price_per_unit ?? b?.recommended_selling_price ?? 0}"></label></div>
+          <div><label>Commission %<input name="commission_rate_applied" type="number" step="0.01" min="0" value="${t.commission_rate_applied ?? (s?.default_commission_rate||0)}"></label></div>
+        </div>
+      `;
+    } else {
+      fields += `
+        <div class="row">
+          <div><label>Qty Adjustment<input name="quantity_adjustment" type="number" step="1" value="${t.quantity_adjustment||0}"></label></div>
+          <div><label>Note<input name="note" value="${t.note||''}"></label></div>
+        </div>
+      `;
+    }
+    fields += `</form>`;
+
+    openModal('Edit Transaction', fields, () => {
+      const fd = Object.fromEntries(new FormData($('#editTxnForm')).entries());
+      if (t.type==='sale') {
+        const qty = parseInt(fd.quantity_sold||0);
+        const allowNeg = !!state.settings?.allowNegativeStock;
+        if (qty > (b?.current_inventory_count||0) && !allowNeg) {
+          alert('Cannot sell more than in stock (toggle Allow Negative Stock in settings to override).');
+          return;
+        }
+      }
+      updateTxn(t.id, fd);
+    });
+  }
+
+  // --- Event handlers ---
+  setTheme(localStorage.getItem(THEME_KEY) || 'dark');
+  $('#themeBtn').addEventListener('click', () => {
+    const cur = document.documentElement.dataset.theme || 'dark';
+    setTheme(cur === 'dark' ? 'light' : 'dark');
+  });
+
+  // Tabs
+  $$('header nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('header nav button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.tab;
+      $$('main section').forEach(sec => sec.classList.remove('active'));
+      $('#'+tab).classList.add('active');
+      setHeaderOffsetVar();
+      if (tab === 'dash') {
+        renderCharts();
+      }
+    });
+  });
+
+  // Recent interactions (click item to jump to Transactions; empty-state button)
+  $('#recentTxns').addEventListener('click', (e) => {
+    const addBtn = e.target.closest('#goAddTxnBtn');
+    if (addBtn) {
+      document.querySelector('header nav button[data-tab="txns"]')?.click();
+      return;
+    }
+    const item = e.target.closest('.recent-item');
+    if (!item) return;
+    const bookId = parseInt(item.dataset.bookId || '0');
+    const txnId = parseInt(item.dataset.txnId || '0');
+    document.querySelector('header nav button[data-tab="txns"]')?.click();
+    if (bookId) $('#filterBook').value = String(bookId);
+    $('#filterType').value = ''; // show all types for that book
+    $('#filterSupplier').value = '';
+    $('#filterSearch').value = '';
+    renderTxnsTable();
+    setTimeout(() => highlightTxnRow(txnId), 50);
+  });
+
+  function highlightTxnRow(id) {
+    const row = document.querySelector(`#txnsTableWrap tr[data-txn-id="${id}"]`);
+    if (!row) return;
+    row.classList.add('flash-highlight');
+    row.scrollIntoView({ behavior:'smooth', block:'center' });
+    setTimeout(() => row.classList.remove('flash-highlight'), 1700);
+  }
+
+  // KPI Low-stock click -> Books with low-only
+  $('#kpiLowCard').addEventListener('click', () => {
+    const btn = document.querySelector('header nav button[data-tab="books"]');
+    btn?.click();
+    ui.showLowOnly = true;
+    $('#lowOnlyBtn')?.classList.add('primary');
+    renderBooksTable();
+  });
+
+  // Toggle transaction fields by type + preview
+  $('#txnType').addEventListener('change', () => {
+    const t = $('#txnType').value;
+    $('#purchaseFields').style.display = (t==='purchase') ? 'grid' : 'none';
+    $('#saleFields').style.display = (t==='sale') ? 'grid' : 'none';
+    $('#adjustFields').style.display = (t==='adjustment') ? 'grid' : 'none';
+    updateTxnPreview();
+  });
+  // Auto defaults on select change
+  $('#txnBook').addEventListener('change', () => {
+    const t = $('#txnType').value;
+    const b = state.books.find(x=>x.id===parseInt($('#txnBook').value||0));
+    if (!b) return;
+    if (t==='sale') {
+      const p = document.querySelector('[name="selling_price_per_unit"]');
+      if (!p.value) p.value = b.recommended_selling_price || '';
+    }
+    if (t==='purchase') {
+      const c = document.querySelector('[name="purchase_cost_per_unit"]');
+      if (!c.value) c.value = b.purchase_cost_per_unit || '';
+    }
+    updateTxnPreview();
+  });
+  $('#txnSupplier').addEventListener('change', () => {
+    if ($('#txnType').value==='sale') {
+      const s = state.suppliers.find(x=>x.id===parseInt($('#txnSupplier').value||0));
+      const c = document.querySelector('[name="commission_rate_applied"]');
+      if (s && !c.value) c.value = s.default_commission_rate || '';
+    }
+    updateTxnPreview();
+  });
+
+  // Add Book
+  $('#bookForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target).entries());
+    const added = addBook(fd);
+    if (!added) return;
+    e.target.reset();
+  });
+
+  // Books: search, sort, actions
+  $('#bookSearch').addEventListener('input', debounce((e) => { ui.searchBooks = e.target.value; renderBooksTable(); }, 180));
+  $('#lowOnlyBtn').addEventListener('click', () => {
+    ui.showLowOnly = !ui.showLowOnly;
+    $('#lowOnlyBtn').classList.toggle('primary', ui.showLowOnly);
+    renderBooksTable();
+  });
+  $('#booksTableWrap').addEventListener('click', (e) => {
+    const th = e.target.closest('th.sort');
+    if (th && th.dataset.sort) {
+      const key = th.dataset.sort;
+      if (ui.bookSort.key === key) ui.bookSort.dir = ui.bookSort.dir==='asc'?'desc':'asc';
+      else { ui.bookSort.key = key; ui.bookSort.dir='asc'; }
+      renderBooksTable();
+      return;
+    }
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = parseInt(btn.dataset.id);
+    if (btn.dataset.action==='edit-book') {
+      const b = state.books.find(x=>x.id===id);
+      openModal('Edit Book', `
+        <form id="editBookForm" class="row-stack">
+          <div class="row"><div><label>Title<input name="title" value="${b.title}"></label></div><div><label>Author<input name="author" value="${b.author||''}"></label></div></div>
+          <div class="row"><div><label>ISBN<input name="isbn" value="${b.isbn||''}"></label></div><div><label>Condition<input name="book_condition" value="${b.book_condition||''}"></label></div></div>
+          <div class="row"><div><label>Purchase Cost/Unit<input name="purchase_cost_per_unit" type="number" step="0.01" min="0" value="${b.purchase_cost_per_unit}"></label></div><div><label>Minimum Stock<input name="minimum_stock_level" type="number" step="1" min="0" value="${b.minimum_stock_level||0}"></label></div></div>
+          <div><label>Recommended Selling Price<input name="recommended_selling_price" type="number" step="0.01" min="0" value="${b.recommended_selling_price||0}"></label></div>
+        </form>
+      `, () => {
+        const fd = Object.fromEntries(new FormData($('#editBookForm')).entries());
+        updateBook(b.id, fd);
+      });
+    }
+    if (btn.dataset.action==='delete-book') {
+      if (confirm('Delete this book? Only possible if it has no transactions.')) deleteBook(id);
+    }
+  });
+
+  // Add Supplier
+  $('#supplierForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target).entries());
+    addSupplier(fd);
+    e.target.reset();
+  });
+
+  // Suppliers: search, actions
+  $('#supplierSearch').addEventListener('input', debounce((e)=> { ui.searchSuppliers = e.target.value; renderSuppliersTable(); }, 180));
+  $('#suppliersTableWrap').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = parseInt(btn.dataset.id);
+    if (btn.dataset.action==='edit-supplier') {
+      const s = state.suppliers.find(x=>x.id===id);
+      openModal('Edit Supplier', `
+        <form id="editSupplierForm" class="row-stack">
+          <div class="row"><div><label>Name<input name="name" value="${s.name}"></label></div><div><label>Contact<input name="contact" value="${s.contact||''}"></label></div></div>
+          <div class="row"><div><label>Phone<input name="phone" value="${s.phone||''}"></label></div><div><label>Email<input name="email" type="email" value="${s.email||''}"></label></div></div>
+          <div><label>Default Commission %<input name="default_commission_rate" type="number" step="0.01" min="0" value="${s.default_commission_rate||0}"></label></div>
+        </form>
+      `, () => {
+        const fd = Object.fromEntries(new FormData($('#editSupplierForm')).entries());
+        updateSupplier(s.id, fd);
+      });
+    }
+    if (btn.dataset.action==='delete-supplier') {
+      if (confirm('Delete this supplier? Not allowed if referenced by transactions.')) deleteSupplier(id);
+    }
+  });
+
+  // Add Transaction (with improved validation)
+  $('#txnForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = Object.fromEntries(new FormData(e.target).entries());
+    if (!fd.book_id) { alert('Please select a book.'); return; }
+    
+    const book = state.books.find(b=>b.id===parseInt(fd.book_id));
+    const type = fd.type;
+
+    if (type==='sale' && (!fd.selling_price_per_unit || fd.selling_price_per_unit==='')) fd.selling_price_per_unit = book?.recommended_selling_price || 0;
+    if (type==='purchase' && (!fd.purchase_cost_per_unit || fd.purchase_cost_per_unit==='')) fd.purchase_cost_per_unit = book?.purchase_cost_per_unit || 0;
+
+    if (type === 'sale') {
+      const qty = parseInt(fd.quantity_sold || 0);
+      const allowNeg = !!state.settings?.allowNegativeStock;
+      
+      if (qty > (book?.current_inventory_count || 0) && !allowNeg) {
+        alert('Cannot sell more than in stock. To override, enable "Allow Negative Stock" in Data -> Settings (not yet implemented).');
+        return;
+      }
+      
+      if ((book?.average_cost_per_unit || 0) === 0) {
+        if (!confirm('Warning: The average cost for this book is 0. This will result in an artificially high profit. Do you want to continue with this sale?')) {
+          return;
+        }
+      }
+    }
+
+    addTxn(fd);
+    e.target.reset();
+    updateTxnPreview();
+  });
+
+  // Filters
+  $('#clearFilters').addEventListener('click', () => {
+    $('#filterBook').value = '';
+    $('#filterSupplier').value = '';
+    $('#filterType').value = '';
+    $('#filterSearch').value = '';
+    renderTxnsTable();
+  });
+  $('#filterBook').addEventListener('change', renderTxnsTable);
+  $('#filterSupplier').addEventListener('change', renderTxnsTable);
+  $('#filterType').addEventListener('change', renderTxnsTable);
+  $('#filterSearch').addEventListener('input', debounce(renderTxnsTable, 180));
+
+  // Data: Export/Import/Reset
+  $('#exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `book_ops_data_${new Date().toISOString().slice(0,10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  function toCsvRow(vals) {
+    return vals.map(v => {
+      if (v==null) return '';
+      const s = String(v).replace(/"/g,'""');
+      return `"${s}"`;
+    }).join(',');
+  }
+  function downloadCsv(filename, rows) {
+    const blob = new Blob([rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  $('#exportBooksCsv').addEventListener('click', () => {
+    const rows = [];
+    rows.push(toCsvRow(['id','title','author','isbn','purchase_cost','avg_cost','stock','min_stock','rsp','condition']));
+    state.books.forEach(b => {
+      rows.push(toCsvRow([b.id,b.title,b.author,b.isbn,b.purchase_cost_per_unit,b.average_cost_per_unit,b.current_inventory_count,b.minimum_stock_level,b.recommended_selling_price,b.book_condition]));
+    });
+    downloadCsv('books.csv', rows);
+  });
+  $('#exportTxnsCsv').addEventListener('click', () => {
+    const rows = [];
+    rows.push(toCsvRow(['id','type','date','title','book','supplier','qty_received','qty_sold','qty_adj','unit_cost','selling_price','commission_rate','payment_status','amount_paid','gross_revenue','commission_amount','gross_profit','net_profit_after_commission','total_purchase_cost','outstanding','before_stock','after_stock','avg_cost_at_txn']));
+    state.txns.forEach(t => {
+      const b = state.books.find(x=>x.id===t.book_id);
+      const s = state.suppliers.find(x=>x.id===t.supplier_id);
+      const totalPurchase = t.derived.total_purchase_cost || 0;
+      const outstanding = t.type==='purchase' ? Math.max(0, totalPurchase - (t.amount_paid||0)) : '';
+      rows.push(toCsvRow([
+        t.id, t.type, t.date, t.title, b?.title||'', s?.name||'',
+        t.quantity_received, t.quantity_sold, t.quantity_adjustment,
+        t.purchase_cost_per_unit, t.selling_price_per_unit, t.commission_rate_applied,
+        t.payment_status, t.amount_paid,
+        t.derived.gross_revenue, t.derived.commission_amount, t.derived.gross_profit, t.derived.net_profit_after_commission,
+        t.derived.total_purchase_cost, outstanding,
+        t.derived.before_stock, t.derived.after_stock, t.derived.avg_cost_at_txn
+      ]));
+    });
+    downloadCsv('transactions.csv', rows);
+  });
+
+  $('#importFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data.books || !data.suppliers || !data.txns) throw new Error('Invalid file structure');
+        state = migrateState(data);
+        saveState();
+        toast('Import successful', 'ok');
+      } catch(err) {
+        alert('Import failed: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  $('#resetBtn').addEventListener('click', () => {
+    if (confirm('Clear all local data? This cannot be undone. Make sure to export your data first.')) {
+      localStorage.removeItem(STORAGE_KEY);
+      resetAll();
+      toast('All data cleared', 'warn');
+    }
+  });
+  $('#seedBtn').addEventListener('click', () => {
+    if (confirm('Load sample data? This will overwrite all current data.')) seedSampleData();
+  });
+
+  // Modal events
+  $('#modalClose').addEventListener('click', closeModal);
+  $('#modalCancel').addEventListener('click', closeModal);
+  $('#modalSave').addEventListener('click', () => { currentModal?.onSave?.(); closeModal(); });
+  $('#modalRoot').addEventListener('click', (e) => { if (e.target.classList.contains('modal-backdrop')) closeModal(); });
+
+  // Transactions: sorting + edit + undo delete
+  $('#txnsTableWrap').addEventListener('click', (e) => {
+    const th = e.target.closest('th.sort');
+    if (th && th.dataset.sort) {
+      const key = th.dataset.sort;
+      if (ui.txnSort.key === key) ui.txnSort.dir = ui.txnSort.dir==='asc'?'desc':'asc';
+      else { ui.txnSort.key = key; ui.txnSort.dir = 'desc'; }
+      renderTxnsTable();
+      return;
+    }
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = parseInt(btn.dataset.id);
+    if (btn.dataset.action==='delete-txn') {
+      if (confirm('Delete this transaction?')) {
+        const idx = state.txns.findIndex(t=>t.id===id);
+        if (idx>-1) {
+          const removed = state.txns.splice(idx,1)[0];
+          saveState();
+          toastAction('Transaction deleted.', 'Undo', () => { state.txns.push(removed); saveState(); }, 'warn');
+        }
+      }
+    }
+    if (btn.dataset.action==='edit-txn') {
+      const t = state.txns.find(x=>x.id===id);
+      openEditTxnModal(t);
+    }
+  });
+
+  // Live preview listeners
+  $('#txnForm').addEventListener('input', updateTxnPreview);
+
+  // Initial render
+  setHeaderOffsetVar();
+  if (!state.books.length && !state.suppliers.length && !state.txns.length) {
+    seedSampleData();
+  } else {
+    recomputeAll();
+    renderAll();
+  }
+</script>
+</body>
+</html>
